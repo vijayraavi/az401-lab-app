@@ -1,0 +1,24 @@
+# GitHub Actions gate: fail the PR unless the description mentions AB#<id> (GitHub-side traceability).
+name: traceability-gate
+on:
+  # Re-run when the PR is opened, the body is edited, new commits are pushed, or it is reopened.
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+permissions:
+  contents: read          # least privilege for GITHUB_TOKEN (this job only reads the PR body)
+jobs:
+  require-ab-link:        # this job name is the status check you add to the branch ruleset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require AB#<id> in PR description
+        env:
+          # Pass the body through env, never inline ${{ }} in run:, to avoid script injection.
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # grep -E (extended regex) -q (quiet). AB# in the description creates the Boards link; a title does not.
+          if printf '%s' "$PR_BODY" | grep -Eq 'AB#[0-9]+'; then
+            echo "Linked to Azure Boards"
+          else
+            echo "::error::PR description must reference a work item, e.g. 'Fixes AB#123'"
+            exit 1
+          fi
